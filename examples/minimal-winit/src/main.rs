@@ -1,18 +1,16 @@
 #![deny(clippy::all)]
 #![forbid(unsafe_code)]
 
-use std::time::Duration;
-
 use async_winit::dpi::{LogicalSize, PhysicalSize};
 use async_winit::event::{ElementState, VirtualKeyCode};
 use async_winit::event_loop::EventLoop;
 use async_winit::window::WindowBuilder;
-use error_iter::ErrorIter as _;
-// use futures_lite::{StreamExt as _};
 use async_winit::Timer;
+use error_iter::ErrorIter as _;
 use futures_lite::prelude::*;
 use log::error;
 use pixels::{Pixels, SurfaceTexture};
+use std::time::Duration;
 use winit::event::KeyboardInput;
 
 const WIDTH: u32 = 320;
@@ -88,13 +86,13 @@ fn main() {
         // Resize the window
         let resize = window.resized().wait_many().map(Events::Resize);
 
-        // Update internal state and request a redraw
+        // Draw the current frame
         let redraw = window
             .redraw_requested()
             .wait_many()
             .map(|_| Events::Redraw);
 
-        // Periodic timer for 60 fps World updates
+        // Update internal state and request a redraw
         let timer = Timer::interval(Duration::from_micros(16_666)).map(|_| Events::Timer);
 
         let mut events = redraw.or(timer).or(input).or(resize).or(close);
