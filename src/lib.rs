@@ -31,6 +31,8 @@
 
 #![deny(clippy::all)]
 
+use std::marker::PhantomData;
+
 pub use crate::builder::{check_texture_size, PixelsBuilder};
 pub use crate::renderers::ScalingRenderer;
 pub use raw_window_handle;
@@ -91,7 +93,7 @@ pub struct PixelsContext {
 ///
 /// See [`PixelsBuilder`] for building a customized pixel buffer.
 #[derive(Debug)]
-pub struct Pixels {
+pub struct Pixels<'win> {
     context: PixelsContext,
     surface_size: SurfaceSize,
     present_mode: wgpu::PresentMode,
@@ -107,6 +109,8 @@ pub struct Pixels {
     // The inverse of the scaling matrix used by the renderer
     // Used to convert physical coordinates back to pixel coordinates (for the mouse)
     scaling_matrix_inverse: ultraviolet::Mat4,
+
+    _phantom: PhantomData<&'win ()>,
 }
 
 /// All the ways in which creating a pixel buffer can fail.
@@ -181,7 +185,7 @@ impl<'win, W: HasRawWindowHandle + HasRawDisplayHandle> SurfaceTexture<'win, W> 
     }
 }
 
-impl Pixels {
+impl<'win> Pixels<'win> {
     /// Create a pixel buffer instance with default options.
     ///
     /// Any ratio differences between the pixel buffer texture size and surface texture size will
@@ -216,7 +220,7 @@ impl Pixels {
     pub fn new<W: HasRawWindowHandle + HasRawDisplayHandle>(
         width: u32,
         height: u32,
-        surface_texture: SurfaceTexture<'_, W>,
+        surface_texture: SurfaceTexture<'win, W>,
     ) -> Result<Self, Error> {
         PixelsBuilder::new(width, height, surface_texture).build()
     }
@@ -247,8 +251,8 @@ impl Pixels {
     pub async fn new_async<W: HasRawWindowHandle + HasRawDisplayHandle>(
         width: u32,
         height: u32,
-        surface_texture: SurfaceTexture<'_, W>,
-    ) -> Result<Self, Error> {
+        surface_texture: SurfaceTexture<'win, W>,
+    ) -> Result<Pixels<'win>, Error> {
         PixelsBuilder::new(width, height, surface_texture)
             .build_async()
             .await

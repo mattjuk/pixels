@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use crate::renderers::{ScalingMatrix, ScalingRenderer};
 use crate::{Error, Pixels, PixelsContext, SurfaceSize, SurfaceTexture, TextureError};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
@@ -243,7 +245,7 @@ impl<'req, 'dev, 'win, W: HasRawWindowHandle + HasRawDisplayHandle>
     /// # Errors
     ///
     /// Returns an error when a [`wgpu::Adapter`] cannot be found.
-    async fn build_impl(self) -> Result<Pixels, Error> {
+    async fn build_impl(self) -> Result<Pixels<'win>, Error> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: self.backend,
             ..Default::default()
@@ -344,6 +346,7 @@ impl<'req, 'dev, 'win, W: HasRawWindowHandle + HasRawDisplayHandle>
             pixels,
             scaling_matrix_inverse,
             alpha_mode,
+            _phantom: PhantomData,
         };
         pixels.reconfigure_surface();
 
@@ -359,7 +362,7 @@ impl<'req, 'dev, 'win, W: HasRawWindowHandle + HasRawDisplayHandle>
     ///
     /// Returns an error when a [`wgpu::Adapter`] or [`wgpu::Device`] cannot be found.
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn build(self) -> Result<Pixels, Error> {
+    pub fn build(self) -> Result<Pixels<'win>, Error> {
         pollster::block_on(self.build_impl())
     }
 
@@ -385,7 +388,7 @@ impl<'req, 'dev, 'win, W: HasRawWindowHandle + HasRawDisplayHandle>
     /// # Errors
     ///
     /// Returns an error when a [`wgpu::Adapter`] or [`wgpu::Device`] cannot be found.
-    pub async fn build_async(self) -> Result<Pixels, Error> {
+    pub async fn build_async(self) -> Result<Pixels<'win>, Error> {
         self.build_impl().await
     }
 }

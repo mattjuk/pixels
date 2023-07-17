@@ -1,14 +1,19 @@
 #![deny(clippy::all)]
 #![forbid(unsafe_code)]
 
+use std::time::Duration;
+
+use async_winit::dpi::{LogicalSize, PhysicalSize};
+use async_winit::event::{ElementState, VirtualKeyCode};
+use async_winit::event_loop::EventLoop;
+use async_winit::window::WindowBuilder;
 use error_iter::ErrorIter as _;
+// use futures_lite::{StreamExt as _};
+use async_winit::Timer;
+use futures_lite::prelude::*;
 use log::error;
-use pixels::{Error, Pixels, SurfaceTexture};
-use winit::dpi::LogicalSize;
-use winit::event::{Event, VirtualKeyCode};
-use winit::event_loop::{ControlFlow, EventLoop};
-use winit::window::WindowBuilder;
-use winit_input_helper::WinitInputHelper;
+use pixels::{Pixels, SurfaceTexture};
+use winit::event::KeyboardInput;
 
 const WIDTH: u32 = 320;
 const HEIGHT: u32 = 240;
@@ -22,59 +27,105 @@ struct World {
     velocity_y: i16,
 }
 
-fn main() -> Result<(), Error> {
+fn main() {
     env_logger::init();
     let event_loop = EventLoop::new();
-    let mut input = WinitInputHelper::new();
-    let window = {
-        let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
-        WindowBuilder::new()
-            .with_title("Hello Pixels")
-            .with_inner_size(size)
-            .with_min_inner_size(size)
-            .build(&event_loop)
-            .unwrap()
-    };
+    let window_target = event_loop.window_target().clone();
 
-    let mut pixels = {
-        let window_size = window.inner_size();
-        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
-        Pixels::new(WIDTH, HEIGHT, surface_texture)?
-    };
-    let mut world = World::new();
+    event_loop.block_on(async move {
+        // Wait for event loop to resume
+        window_target.resumed().await;
 
-    event_loop.run(move |event, _, control_flow| {
-        // Draw the current frame
-        if let Event::RedrawRequested(_) = event {
-            world.draw(pixels.frame_mut());
-            if let Err(err) = pixels.render() {
-                log_error("pixels.render", err);
-                *control_flow = ControlFlow::Exit;
-                return;
+        let window = {
+            let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
+            WindowBuilder::new()
+                .with_title("Hello Pixels")
+                .with_inner_size(size)
+                .with_min_inner_size(size)
+                .build()
+                .await
+                .unwrap()
+        };
+
+        let mut pixels = {
+            let window_size = window.inner_size().await;
+            let surface_texture =
+                SurfaceTexture::new(window_size.width, window_size.height, &window);
+
+            match Pixels::new(WIDTH, HEIGHT, surface_texture) {
+                Ok(pixels) => pixels,
+                Err(err) => {
+                    log_error("pixels.render", err);
+                    window_target.exit().await
+                }
             }
+        };
+
+        // Sigh! We need to aggregate events from multiple streams into a single type
+        enum Events {
+            Close,
+            Resize(PhysicalSize<u32>),
+            Redraw,
+            Continue,
+            Timer,
         }
 
         // Handle input events
-        if input.update(&event) {
-            // Close events
-            if input.key_pressed(VirtualKeyCode::Escape) || input.close_requested() {
-                *control_flow = ControlFlow::Exit;
-                return;
+        let close = window.close_requested().wait_many().map(|_| Events::Close);
+        let input = window.keyboard_input().wait_many().map(|key| {
+            if let KeyboardInput {
+                state: ElementState::Pressed,
+                virtual_keycode: Some(VirtualKeyCode::Escape),
+                ..
+            } = key.input
+            {
+                Events::Close
+            } else {
+                Events::Continue
             }
+        });
 
-            // Resize the window
-            if let Some(size) = input.window_resized() {
-                if let Err(err) = pixels.resize_surface(size.width, size.height) {
-                    log_error("pixels.resize_surface", err);
-                    *control_flow = ControlFlow::Exit;
-                    return;
+        // Resize the window
+        let resize = window.resized().wait_many().map(Events::Resize);
+
+        // Update internal state and request a redraw
+        let redraw = window
+            .redraw_requested()
+            .wait_many()
+            .map(|_| Events::Redraw);
+
+        // Periodic timer for 60 fps World updates
+        let timer = Timer::interval(Duration::from_micros(16_666)).map(|_| Events::Timer);
+
+        let mut events = redraw.or(timer).or(input).or(resize).or(close);
+        let mut world = World::new();
+
+        // This is the actual event loop. Just process events as they come!
+        while let Some(event) = events.next().await {
+            match event {
+                Events::Close => break,
+                Events::Continue => (),
+                Events::Timer => {
+                    world.update();
+                    window.request_redraw();
+                }
+                Events::Redraw => {
+                    world.draw(pixels.frame_mut());
+                    if let Err(err) = pixels.render() {
+                        log_error("pixels.render", err);
+                        break;
+                    }
+                }
+                Events::Resize(size) => {
+                    if let Err(err) = pixels.resize_surface(size.width, size.height) {
+                        log_error("pixels.resize_surface", err);
+                        break;
+                    }
                 }
             }
-
-            // Update internal state and request a redraw
-            world.update();
-            window.request_redraw();
         }
+
+        window_target.exit().await
     });
 }
 
