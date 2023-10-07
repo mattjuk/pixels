@@ -20,7 +20,7 @@ include = [
 ]
 
 [dependencies]
-bytemuck = "1.12"
+bytemuck = "1.14"
 raw-window-handle = "0.5"
 thiserror = "1.0"
 ultraviolet = "0.9"
