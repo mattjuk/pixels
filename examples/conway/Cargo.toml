@@ -17,6 +17,6 @@ getrandom = "0.2"
 clipline = "0.1.1"
 log = "0.4"
 pixels = { path = "../.." }
-randomize = "3"
-winit = "0.28"
-winit_input_helper = "0.14"
+randomize = { version = "5", features = ["getrandom"] }
+winit = { version = "0.29", features = ["rwh_05"] }
+winit_input_helper = "0.15"

@@ -7,8 +7,9 @@ use pixels::{Error, Pixels, SurfaceTexture};
 use std::time::Instant;
 use tiny_skia::Pixmap;
 use winit::dpi::LogicalSize;
-use winit::event::{Event, VirtualKeyCode};
-use winit::event_loop::{ControlFlow, EventLoop};
+use winit::event::{Event, WindowEvent};
+use winit::event_loop::EventLoop;
+use winit::keyboard::KeyCode;
 use winit::window::WindowBuilder;
 use winit_input_helper::WinitInputHelper;
 
@@ -19,7 +20,7 @@ const HEIGHT: u32 = 500;
 
 fn main() -> Result<(), Error> {
     env_logger::init();
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::new().expect("Couldn't create event loop!");
     let mut input = WinitInputHelper::new();
     let window = {
         let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
@@ -41,22 +42,12 @@ fn main() -> Result<(), Error> {
     let mut drawing = Pixmap::new(WIDTH, HEIGHT).unwrap();
     let now = Instant::now();
 
-    event_loop.run(move |event, _, control_flow| {
-        // Draw the current frame
-        if let Event::RedrawRequested(_) = event {
-            pixels.frame_mut().copy_from_slice(drawing.data());
-            if let Err(err) = pixels.render() {
-                log_error("pixels.render", err);
-                *control_flow = ControlFlow::Exit;
-                return;
-            }
-        }
-
+    event_loop.run(move |event, window_target| {
         // Handle input events
         if input.update(&event) {
             // Close events
-            if input.key_pressed(VirtualKeyCode::Escape) || input.close_requested() {
-                *control_flow = ControlFlow::Exit;
+            if input.key_pressed(KeyCode::Escape) || input.close_requested() {
+                window_target.exit();
                 return;
             }
 
@@ -64,7 +55,7 @@ fn main() -> Result<(), Error> {
             if let Some(size) = input.window_resized() {
                 if let Err(err) = pixels.resize_surface(size.width, size.height) {
                     log_error("pixels.resize_surface", err);
-                    *control_flow = ControlFlow::Exit;
+                    window_target.exit();
                     return;
                 }
             }
@@ -73,7 +64,19 @@ fn main() -> Result<(), Error> {
             shape::draw(&mut drawing, now.elapsed().as_secs_f32());
             window.request_redraw();
         }
-    });
+
+        if let Event::WindowEvent { event: WindowEvent::RedrawRequested, .. } = event {
+            // Draw the current frame
+            pixels.frame_mut().copy_from_slice(drawing.data());
+
+            if let Err(err) = pixels.render() {
+                log_error("pixels.render", err);
+                window_target.exit();
+            }           
+        }
+    }).unwrap();
+
+    Ok(())
 }
 
 fn log_error<E: std::error::Error + 'static>(method_name: &str, err: E) {

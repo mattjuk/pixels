@@ -6,8 +6,9 @@ use error_iter::ErrorIter as _;
 use log::error;
 use pixels::{Error, Pixels, SurfaceTexture};
 use winit::dpi::LogicalSize;
-use winit::event::{Event, VirtualKeyCode};
-use winit::event_loop::{ControlFlow, EventLoop};
+use winit::event::{Event, WindowEvent};
+use winit::event_loop::EventLoop;
+use winit::keyboard::KeyCode;
 use winit::window::WindowBuilder;
 use winit_input_helper::WinitInputHelper;
 
@@ -27,7 +28,7 @@ struct World {
 
 fn main() -> Result<(), Error> {
     env_logger::init();
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::new().expect("Couldn't create event loop!");
     let mut input = WinitInputHelper::new();
     let window = {
         let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
@@ -56,12 +57,12 @@ fn main() -> Result<(), Error> {
     };
     let mut world = World::new();
 
-    event_loop.run(move |event, _, control_flow| {
+    event_loop.run(move |event, window_target| {
         // Handle input events
         if input.update(&event) {
             // Close events
-            if input.key_pressed(VirtualKeyCode::Escape) || input.close_requested() {
-                *control_flow = ControlFlow::Exit;
+            if input.key_pressed(KeyCode::Escape) || input.close_requested() || input.destroyed() {
+                window_target.exit();
                 return;
             }
 
@@ -74,7 +75,7 @@ fn main() -> Result<(), Error> {
             if let Some(size) = input.window_resized() {
                 if let Err(err) = pixels.resize_surface(size.width, size.height) {
                     log_error("pixels.resize_surface", err);
-                    *control_flow = ControlFlow::Exit;
+                    window_target.exit();
                     return;
                 }
                 framework.resize(size.width, size.height);
@@ -85,39 +86,43 @@ fn main() -> Result<(), Error> {
             window.request_redraw();
         }
 
-        match event {
-            Event::WindowEvent { event, .. } => {
+        if let Event::WindowEvent { event, .. } = event {
+            match event {
+                // Draw the current frame
+                WindowEvent::RedrawRequested => {
+                    // Draw the world
+                    world.draw(pixels.frame_mut());
+
+                    // Prepare egui
+                    framework.prepare(&window);
+
+                    // Render everything together
+                    let render_result = pixels.render_with(|encoder, render_target, context| {
+                        // Render the world texture
+                        context.scaling_renderer.render(encoder, render_target);
+
+                        // Render egui
+                        framework.render(encoder, render_target, context);
+
+                        Ok(())
+                    });
+
+                    // Basic error handling
+                    if let Err(err) = render_result {
+                        log_error("pixels.render", err);
+                        window_target.exit();
+                    }
+                }
                 // Update egui inputs
-                framework.handle_event(&event);
-            }
-            // Draw the current frame
-            Event::RedrawRequested(_) => {
-                // Draw the world
-                world.draw(pixels.frame_mut());
-
-                // Prepare egui
-                framework.prepare(&window);
-
-                // Render everything together
-                let render_result = pixels.render_with(|encoder, render_target, context| {
-                    // Render the world texture
-                    context.scaling_renderer.render(encoder, render_target);
-
-                    // Render egui
-                    framework.render(encoder, render_target, context);
-
-                    Ok(())
-                });
-
-                // Basic error handling
-                if let Err(err) = render_result {
-                    log_error("pixels.render", err);
-                    *control_flow = ControlFlow::Exit;
+                _ => {
+                    framework.handle_event(&event);
                 }
             }
-            _ => (),
         }
-    });
+        
+    }).unwrap();
+
+    Ok(())
 }
 
 fn log_error<E: std::error::Error + 'static>(method_name: &str, err: E) {

@@ -2,7 +2,7 @@
 use winit::platform::android::activity::AndroidApp;
 
 use pixels::{Pixels, SurfaceTexture};
-use winit::event::Event;
+use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::Window;
 
@@ -24,8 +24,8 @@ fn _main(event_loop: EventLoop<()>) {
 
     let mut world = World::new();
 
-    event_loop.run(move |event, event_loop, control_flow| {
-        *control_flow = ControlFlow::Wait;
+    let _ = event_loop.run(move |event, event_loop| {
+        event_loop.set_control_flow(ControlFlow::Wait);
         match event {
             Event::Resumed => {
                 let _window = Window::new(event_loop).unwrap();
@@ -43,7 +43,7 @@ fn _main(event_loop: EventLoop<()>) {
                 pixels = None;
                 window = None;
             }
-            Event::RedrawRequested(_) => {
+            Event::WindowEvent { event: WindowEvent::RedrawRequested, .. } => {
                 if let (Some(pixels), Some(window)) = (&mut pixels, &window) {
                     world.draw(pixels.frame_mut());
                     pixels.render().unwrap();
@@ -114,7 +114,7 @@ fn android_main(app: AndroidApp) {
     android_logger::init_once(android_logger::Config::default().with_min_level(log::Level::Info));
     let event_loop = EventLoopBuilder::new().with_android_app(app).build();
     log::info!("Hello from android!");
-    _main(event_loop);
+    _main(event_loop.unwrap());
 }
 
 #[allow(dead_code)]
@@ -126,5 +126,5 @@ fn main() {
         .init();
     let event_loop = EventLoopBuilder::new().build();
     log::info!("Hello from desktop!");
-    _main(event_loop);
+    _main(event_loop.unwrap());
 }

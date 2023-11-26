@@ -4,10 +4,12 @@
 use error_iter::ErrorIter as _;
 use log::{debug, error};
 use pixels::{Error, Pixels, SurfaceTexture};
+use randomize::Gen32;
 use winit::{
     dpi::LogicalSize,
-    event::{Event, VirtualKeyCode},
-    event_loop::{ControlFlow, EventLoop},
+    event::{Event, WindowEvent},
+    event_loop::EventLoop,
+    keyboard::KeyCode,
     window::WindowBuilder,
 };
 use winit_input_helper::WinitInputHelper;
@@ -17,7 +19,7 @@ const HEIGHT: u32 = 300;
 
 fn main() -> Result<(), Error> {
     env_logger::init();
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::new().expect("Couldn't create event loop!");
     let mut input = WinitInputHelper::new();
 
     let window = {
@@ -42,39 +44,29 @@ fn main() -> Result<(), Error> {
 
     let mut draw_state: Option<bool> = None;
 
-    event_loop.run(move |event, _, control_flow| {
-        // The one and only event that winit_input_helper doesn't have for us...
-        if let Event::RedrawRequested(_) = event {
-            life.draw(pixels.frame_mut());
-            if let Err(err) = pixels.render() {
-                log_error("pixels.render", err);
-                *control_flow = ControlFlow::Exit;
-                return;
-            }
-        }
-
+    event_loop.run(move |event, window_target| {
         // For everything else, for let winit_input_helper collect events to build its state.
         // It returns `true` when it is time to update our game state and request a redraw.
         if input.update(&event) {
             // Close events
-            if input.key_pressed(VirtualKeyCode::Escape) || input.close_requested() {
-                *control_flow = ControlFlow::Exit;
+            if input.key_pressed(KeyCode::Escape) || input.close_requested() {
+                window_target.exit();
                 return;
             }
-            if input.key_pressed(VirtualKeyCode::P) {
+            if input.key_pressed(KeyCode::KeyP) {
                 paused = !paused;
             }
-            if input.key_pressed_os(VirtualKeyCode::Space) {
+            if input.key_pressed_os(KeyCode::Space) {
                 // Space is frame-step, so ensure we're paused
                 paused = true;
             }
-            if input.key_pressed(VirtualKeyCode::R) {
+            if input.key_pressed(KeyCode::KeyR) {
                 life.randomize();
             }
             // Handle mouse. This is a bit involved since support some simple
             // line drawing (mostly because it makes nice looking patterns).
             let (mouse_cell, mouse_prev_cell) = input
-                .mouse()
+                .cursor()
                 .map(|(mx, my)| {
                     let (dx, dy) = input.mouse_diff();
                     let prev_x = mx - dx;
@@ -125,16 +117,27 @@ fn main() -> Result<(), Error> {
             if let Some(size) = input.window_resized() {
                 if let Err(err) = pixels.resize_surface(size.width, size.height) {
                     log_error("pixels.resize_surface", err);
-                    *control_flow = ControlFlow::Exit;
+                    window_target.exit();
                     return;
                 }
             }
-            if !paused || input.key_pressed_os(VirtualKeyCode::Space) {
+            if !paused || input.key_pressed_os(KeyCode::Space) {
                 life.update();
             }
             window.request_redraw();
         }
-    });
+
+        // The one and only event that winit_input_helper doesn't have for us...
+        if let Event::WindowEvent { event: WindowEvent::RedrawRequested, .. } = event {
+            life.draw(pixels.frame_mut());
+            if let Err(err) = pixels.render() {
+                log_error("pixels.render", err);
+                window_target.exit();
+            }
+        }        
+    }).unwrap();
+
+    Ok(())
 }
 
 fn log_error<E: std::error::Error + 'static>(method_name: &str, err: E) {
@@ -144,20 +147,6 @@ fn log_error<E: std::error::Error + 'static>(method_name: &str, err: E) {
     }
 }
 
-/// Generate a pseudorandom seed for the game's PRNG.
-fn generate_seed() -> (u64, u64) {
-    use byteorder::{ByteOrder, NativeEndian};
-    use getrandom::getrandom;
-
-    let mut seed = [0_u8; 16];
-
-    getrandom(&mut seed).expect("failed to getrandom");
-
-    (
-        NativeEndian::read_u64(&seed[0..8]),
-        NativeEndian::read_u64(&seed[8..16]),
-    )
-}
 
 const BIRTH_RULE: [bool; 9] = [false, false, false, true, false, false, false, false, false];
 const SURVIVE_RULE: [bool; 9] = [false, false, true, true, false, false, false, false, false];
@@ -242,9 +231,9 @@ impl ConwayGrid {
     }
 
     fn randomize(&mut self) {
-        let mut rng: randomize::PCG32 = generate_seed().into();
+        let mut rng = randomize::PCG32::from_getrandom().expect("Couldn't generate an RNG!");
         for c in self.cells.iter_mut() {
-            let alive = randomize::f32_half_open_right(rng.next_u32()) > INITIAL_FILL;
+            let alive = rng.next_f32_unit() > INITIAL_FILL;
             *c = Cell::new(alive);
         }
         // run a few simulation iterations for aesthetics (If we don't, the

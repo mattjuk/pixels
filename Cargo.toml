@@ -34,7 +34,7 @@ pollster = "0.3"
 
 [dev-dependencies]
 pixels-mocks = { path = "internals/pixels-mocks" }
-winit = "0.28"
+winit = { version = "0.29", features = ["rwh_05"] }
 
 [workspace]
 members = [
