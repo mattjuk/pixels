@@ -11,10 +11,10 @@ default = ["optimize"]
 
 [dependencies]
 byteorder = "1"
-env_logger = "0.10"
+env_logger = "0.11"
 error-iter = "0.4"
 getrandom = "0.2"
-clipline = "0.1.1"
+clipline = "0.2"
 log = "0.4"
 pixels = { path = "../.." }
 randomize = { version = "5", features = ["getrandom"] }

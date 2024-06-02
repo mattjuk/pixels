@@ -11,7 +11,7 @@ default = ["optimize"]
 
 [dependencies]
 bytemuck = "1"
-env_logger = "0.10"
+env_logger = "0.11"
 error-iter = "0.4"
 log = "0.4"
 pixels = { path = "../.." }

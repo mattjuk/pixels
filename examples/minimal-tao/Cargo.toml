@@ -10,8 +10,9 @@ optimize = ["log/release_max_level_warn"]
 default = ["optimize"]
 
 [dependencies]
-env_logger = "0.10"
+env_logger = "0.11.3"
 error-iter = "0.4"
 log = "0.4"
+muda = "0.13"
 pixels = { path = "../.." }
-tao = "0.20"
+tao = { version = "0.28", features = ["rwh_05"] }

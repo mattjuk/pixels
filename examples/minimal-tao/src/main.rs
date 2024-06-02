@@ -3,12 +3,13 @@
 
 use error_iter::ErrorIter as _;
 use log::error;
+use muda::{Menu, PredefinedMenuItem, Submenu};
 use pixels::{Error, Pixels, SurfaceTexture};
 use tao::dpi::LogicalSize;
 use tao::event::{Event, KeyEvent, WindowEvent};
 use tao::event_loop::{ControlFlow, EventLoop};
 use tao::keyboard::KeyCode;
-use tao::menu::{MenuBar, MenuItem};
+use tao::platform::windows::WindowExtWindows;
 use tao::window::WindowBuilder;
 
 const WIDTH: u32 = 320;
@@ -26,22 +27,24 @@ struct World {
 fn main() -> Result<(), Error> {
     env_logger::init();
     let event_loop = EventLoop::new();
+
+    let menu_bar = Menu::new();
+    let file_menu = Submenu::new("File", true);
+    let _ = file_menu.append_items(&[&PredefinedMenuItem::quit(None)]);
+
+    let _ = menu_bar.append_items(&[&file_menu]);
+
     let window = {
-        let mut file_menu = MenuBar::new();
-        file_menu.add_native_item(MenuItem::Quit);
-
-        let mut menu = MenuBar::new();
-        menu.add_submenu("File", true, file_menu);
-
         let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
         WindowBuilder::new()
             .with_title("Hello Pixels/Tao")
-            .with_menu(menu)
             .with_inner_size(size)
             .with_min_inner_size(size)
             .build(&event_loop)
             .unwrap()
     };
+
+    let _ = menu_bar.init_for_hwnd(window.hwnd() as _);
 
     let mut pixels = {
         let window_size = window.inner_size();

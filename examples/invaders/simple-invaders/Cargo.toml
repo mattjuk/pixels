@@ -5,9 +5,9 @@ authors = ["Jay Oster <jay@kodewerx.org>"]
 edition = "2018"
 
 [dependencies]
-clipline = "0.1.1"
+clipline = "0.2.0"
 pcx = "0.2"
-randomize = "3.0"
+randomize = "5.0.0"
 
 [dev-dependencies]
 byteorder = "1.3"

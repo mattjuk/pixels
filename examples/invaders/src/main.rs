@@ -7,9 +7,9 @@ use gilrs::{Button, GamepadId, Gilrs};
 use log::{debug, error};
 use pixels::{Error, Pixels, SurfaceTexture};
 use simple_invaders::{Controls, Direction, World, FPS, HEIGHT, TIME_STEP, WIDTH};
-use std::{env, time::Duration};
+use std::{env, sync::Arc, time::Duration};
 use winit::{
-    dpi::LogicalSize, event::VirtualKeyCode, event_loop::EventLoop, window::WindowBuilder,
+    dpi::LogicalSize, keyboard::KeyCode, event_loop::EventLoop, window::WindowBuilder,
 };
 use winit_input_helper::WinitInputHelper;
 
@@ -59,11 +59,11 @@ impl Game {
 
         self.controls = {
             // Keyboard controls
-            let mut left = self.input.key_held(VirtualKeyCode::Left);
-            let mut right = self.input.key_held(VirtualKeyCode::Right);
-            let mut fire = self.input.key_pressed(VirtualKeyCode::Space);
-            let mut pause = self.input.key_pressed(VirtualKeyCode::Pause)
-                | self.input.key_pressed(VirtualKeyCode::P);
+            let mut left = self.input.key_held(KeyCode::ArrowLeft);
+            let mut right = self.input.key_held(KeyCode::ArrowRight);
+            let mut fire = self.input.key_pressed(KeyCode::Space);
+            let mut pause = self.input.key_pressed(KeyCode::Pause)
+                | self.input.key_pressed(KeyCode::KeyP);
 
             // GamePad controls
             if let Some(id) = self.gamepad {
@@ -103,7 +103,7 @@ impl Game {
 
 fn main() -> Result<(), Error> {
     env_logger::init();
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::new().unwrap();
 
     // Enable debug mode with `DEBUG=true` environment variable
     let debug = env::var("DEBUG")
@@ -130,9 +130,9 @@ fn main() -> Result<(), Error> {
 
     let game = Game::new(pixels, debug);
 
-    game_loop(
+    let _ = game_loop(
         event_loop,
-        window,
+        Arc::new(window),
         game,
         FPS as u32,
         0.1,
@@ -164,7 +164,7 @@ fn main() -> Result<(), Error> {
                 g.game.update_controls();
 
                 // Close events
-                if g.game.input.key_pressed(VirtualKeyCode::Escape)
+                if g.game.input.key_pressed(KeyCode::Escape)
                     || g.game.input.close_requested()
                 {
                     g.exit();
@@ -172,7 +172,7 @@ fn main() -> Result<(), Error> {
                 }
 
                 // Reset game
-                if g.game.input.key_pressed(VirtualKeyCode::R) {
+                if g.game.input.key_pressed(KeyCode::KeyR) {
                     g.game.reset_game();
                 }
 
@@ -186,6 +186,7 @@ fn main() -> Result<(), Error> {
             }
         },
     );
+    Ok(())
 }
 
 fn log_error<E: std::error::Error + 'static>(method_name: &str, err: E) {

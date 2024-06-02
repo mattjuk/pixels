@@ -188,7 +188,7 @@ impl World {
 
         let dt = Duration::default();
         let gameover = false;
-        let prng = PCG32::seed(seed.0, seed.1);
+        let prng = PCG32::new(seed.0, seed.1);
 
         World {
             invaders,
