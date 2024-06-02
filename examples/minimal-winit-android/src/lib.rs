@@ -2,8 +2,9 @@
 use winit::platform::android::activity::AndroidApp;
 
 use pixels::{Pixels, SurfaceTexture};
+use std::sync::Arc;
 use winit::event::{Event, WindowEvent};
-use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
+use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
 const WIDTH: u32 = 320;
@@ -18,44 +19,47 @@ struct World {
     velocity_y: i16,
 }
 
-fn _main(event_loop: EventLoop<()>) {
-    let mut window: Option<Window> = None;
-    let mut pixels: Option<Pixels> = None;
+struct Display<'win> {
+    window: Arc<Window>,
+    pixels: Pixels<'win>,
+}
 
+fn _main(event_loop: EventLoop<()>) {
+    let mut display: Option<Display> = None;
+    
     let mut world = World::new();
 
-    let _ = event_loop.run(move |event, event_loop| {
-        event_loop.set_control_flow(ControlFlow::Wait);
+    let res = event_loop.run( |event, window_target| {
+        window_target.set_control_flow(ControlFlow::Wait);
         match event {
             Event::Resumed => {
-                let _window = Window::new(event_loop).unwrap();
-                let _pixels = {
-                    let window_size = _window.inner_size();
+                let window = Arc::new(Window::new(window_target).unwrap());
+                let pixels = {
+                    let window_size = window.inner_size();
                     let surface_texture =
-                        SurfaceTexture::new(window_size.width, window_size.height, &_window);
+                        SurfaceTexture::new(window_size.width, window_size.height, Arc::clone(&window));
                     Pixels::new(WIDTH, HEIGHT, surface_texture).unwrap()
                 };
-                _window.request_redraw();
-                window = Some(_window);
-                pixels = Some(_pixels);
+                window.request_redraw();
+                display = Some(Display { window, pixels });
             }
             Event::Suspended => {
-                pixels = None;
-                window = None;
+                display = None;
             }
             Event::WindowEvent { event: WindowEvent::RedrawRequested, .. } => {
-                if let (Some(pixels), Some(window)) = (&mut pixels, &window) {
-                    world.draw(pixels.frame_mut());
-                    pixels.render().unwrap();
-                    window.request_redraw();
+                if let Some(display) = &mut display {
+                    world.draw(display.pixels.frame_mut());
+                    display.pixels.render().unwrap();
+                    display.window.request_redraw();
                 }
             }
             _ => {}
         }
-        if window.is_some() {
+        if display.is_some() {
             world.update();
         }
     });
+    res.unwrap();
 }
 
 impl World {
@@ -112,7 +116,7 @@ impl World {
 fn android_main(app: AndroidApp) {
     use winit::platform::android::EventLoopBuilderExtAndroid;
     android_logger::init_once(android_logger::Config::default().with_min_level(log::Level::Info));
-    let event_loop = EventLoopBuilder::new().with_android_app(app).build();
+    let event_loop = EventLoop::new().with_android_app(app).unwrap();
     log::info!("Hello from android!");
     _main(event_loop.unwrap());
 }
@@ -124,7 +128,7 @@ fn main() {
         .filter_level(log::LevelFilter::Info) // Default Log Level
         .parse_default_env()
         .init();
-    let event_loop = EventLoopBuilder::new().build();
+    let event_loop = EventLoop::new().unwrap();
     log::info!("Hello from desktop!");
-    _main(event_loop.unwrap());
+    _main(event_loop);
 }

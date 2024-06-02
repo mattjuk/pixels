@@ -5,6 +5,7 @@ use error_iter::ErrorIter as _;
 use log::error;
 use muda::{Menu, PredefinedMenuItem, Submenu};
 use pixels::{Error, Pixels, SurfaceTexture};
+use std::sync::Arc;
 use tao::dpi::LogicalSize;
 use tao::event::{Event, KeyEvent, WindowEvent};
 use tao::event_loop::{ControlFlow, EventLoop};
@@ -36,19 +37,20 @@ fn main() -> Result<(), Error> {
 
     let window = {
         let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
-        WindowBuilder::new()
+        let window = WindowBuilder::new()
             .with_title("Hello Pixels/Tao")
             .with_inner_size(size)
             .with_min_inner_size(size)
             .build(&event_loop)
-            .unwrap()
+            .unwrap();
+        Arc::new(window)
     };
 
     let _ = menu_bar.init_for_hwnd(window.hwnd() as _);
 
     let mut pixels = {
         let window_size = window.inner_size();
-        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
+        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, Arc::clone(&window));
         Pixels::new(WIDTH, HEIGHT, surface_texture)?
     };
     let mut world = World::new();

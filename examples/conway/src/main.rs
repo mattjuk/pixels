@@ -44,7 +44,7 @@ fn main() -> Result<(), Error> {
 
     let mut draw_state: Option<bool> = None;
 
-    event_loop.run(move |event, window_target| {
+    event_loop.run(|event, window_target| {
         // For everything else, for let winit_input_helper collect events to build its state.
         // It returns `true` when it is time to update our game state and request a redraw.
         if input.update(&event) {

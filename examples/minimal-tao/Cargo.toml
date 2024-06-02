@@ -15,4 +15,4 @@ error-iter = "0.4"
 log = "0.4"
 muda = "0.13"
 pixels = { path = "../.." }
-tao = { version = "0.28", features = ["rwh_05"] }
+tao = { version = "0.28", features = ["rwh_06"] }

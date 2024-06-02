@@ -42,7 +42,7 @@ fn main() -> Result<(), Error> {
     let mut drawing = Pixmap::new(WIDTH, HEIGHT).unwrap();
     let now = Instant::now();
 
-    event_loop.run(move |event, window_target| {
+    event_loop.run(|event, window_target| {
         // Handle input events
         if input.update(&event) {
             // Close events

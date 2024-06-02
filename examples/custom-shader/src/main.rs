@@ -49,7 +49,7 @@ fn main() -> Result<(), Error> {
     let mut time = 0.0;
     let mut noise_renderer = NoiseRenderer::new(&pixels, window_size.width, window_size.height)?;
 
-    event_loop.run(move |event, window_target| {
+    event_loop.run(|event, window_target| {
         // Handle input events
         if input.update(&event) {
             // Close events

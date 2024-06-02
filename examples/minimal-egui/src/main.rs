@@ -57,7 +57,7 @@ fn main() -> Result<(), Error> {
     };
     let mut world = World::new();
 
-    event_loop.run(move |event, window_target| {
+    event_loop.run(|event, window_target| {
         // Handle input events
         if input.update(&event) {
             // Close events
@@ -115,7 +115,7 @@ fn main() -> Result<(), Error> {
                 }
                 // Update egui inputs
                 _ => {
-                    framework.handle_event(&event);
+                    framework.handle_event(&window, &event);
                 }
             }
         }

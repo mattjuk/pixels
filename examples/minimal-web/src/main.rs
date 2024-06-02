@@ -109,7 +109,7 @@ async fn run() {
     };
     let mut world = World::new();
 
-    event_loop.run(move |event, window_target| {
+    event_loop.run(|event, window_target| {
         // Handle input events
         if input.update(&event) {
             // Close events

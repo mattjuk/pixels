@@ -1,5 +1,5 @@
 use egui::{ClippedPrimitive, Context, TexturesDelta};
-use egui_wgpu::renderer::{Renderer, ScreenDescriptor};
+use egui_wgpu::{Renderer, ScreenDescriptor};
 use pixels::{wgpu, PixelsContext};
 use winit::event_loop::EventLoopWindowTarget;
 use winit::window::Window;
@@ -36,7 +36,7 @@ impl Framework {
         let max_texture_size = pixels.device().limits().max_texture_dimension_2d as usize;
 
         let egui_ctx = Context::default();
-        let egui_state = egui_winit::State::new(egui::ViewportId::ROOT, event_loop, Some(scale_factor), Some(max_texture_size));
+        let egui_state = egui_winit::State::new(egui_ctx.clone(), egui::ViewportId::ROOT, event_loop, Some(scale_factor), Some(max_texture_size));
         let screen_descriptor = ScreenDescriptor {
             size_in_pixels: [width, height],
             pixels_per_point: scale_factor,
@@ -57,8 +57,8 @@ impl Framework {
     }
 
     /// Handle input events from the window manager.
-    pub(crate) fn handle_event(&mut self, event: &winit::event::WindowEvent) {
-        let _ = self.egui_state.on_window_event(&self.egui_ctx, event);
+    pub(crate) fn handle_event(&mut self, window: &Window, event: &winit::event::WindowEvent) {
+        let _ = self.egui_state.on_window_event(window, event);
     }
 
     /// Resize egui.
@@ -83,8 +83,7 @@ impl Framework {
         });
 
         self.textures.append(output.textures_delta);
-        self.egui_state
-            .handle_platform_output(window, &self.egui_ctx, output.platform_output);
+        self.egui_state.handle_platform_output(window, output.platform_output);
         self.paint_jobs = self.egui_ctx.tessellate(output.shapes, self.screen_descriptor.pixels_per_point);
     }
 

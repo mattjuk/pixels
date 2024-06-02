@@ -13,7 +13,7 @@ default = ["optimize"]
 error-iter = "0.4"
 log = "0.4"
 pixels = { path = "../.." }
-winit = { version = "0.29", features = ["rwh_05"] }
+winit = { version = "0.29", features = ["rwh_06"] }
 winit_input_helper = "0.15"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

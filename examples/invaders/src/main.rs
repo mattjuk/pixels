@@ -16,7 +16,7 @@ use winit_input_helper::WinitInputHelper;
 /// Uber-struct representing the entire game.
 struct Game {
     /// Software renderer.
-    pixels: Pixels,
+    pixels: Pixels<'static>,
     /// Invaders world.
     world: World,
     /// Player controls for world updates.
@@ -32,7 +32,7 @@ struct Game {
 }
 
 impl Game {
-    fn new(pixels: Pixels, debug: bool) -> Self {
+    fn new(pixels: Pixels<'static>, debug: bool) -> Self {
         Self {
             pixels,
             world: World::new(generate_seed(), debug),
@@ -114,17 +114,18 @@ fn main() -> Result<(), Error> {
     let window = {
         let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
         let scaled_size = LogicalSize::new(WIDTH as f64 * 3.0, HEIGHT as f64 * 3.0);
-        WindowBuilder::new()
+        let window = WindowBuilder::new()
             .with_title("pixel invaders")
             .with_inner_size(scaled_size)
             .with_min_inner_size(size)
             .build(&event_loop)
-            .unwrap()
+            .unwrap();
+        Arc::new(window)
     };
 
     let pixels = {
         let window_size = window.inner_size();
-        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
+        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, Arc::clone(&window));
         Pixels::new(WIDTH as u32, HEIGHT as u32, surface_texture)?
     };
 
@@ -132,7 +133,7 @@ fn main() -> Result<(), Error> {
 
     let _ = game_loop(
         event_loop,
-        Arc::new(window),
+        window,
         game,
         FPS as u32,
         0.1,
