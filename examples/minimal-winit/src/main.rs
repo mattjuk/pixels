@@ -1,15 +1,17 @@
 #![deny(clippy::all)]
 #![forbid(unsafe_code)]
 
+use std::sync::Arc;
+
 use error_iter::ErrorIter as _;
 use log::error;
 use pixels::{Error, Pixels, SurfaceTexture};
+use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
-use winit::event::{Event, WindowEvent};
-use winit::event_loop::EventLoop;
-use winit::keyboard::KeyCode;
-use winit::window::WindowBuilder;
-use winit_input_helper::WinitInputHelper;
+use winit::event::WindowEvent;
+use winit::event_loop::{ControlFlow, EventLoop};
+use winit::keyboard::{Key, NamedKey};
+use winit::window::Window;
 
 const WIDTH: u32 = 320;
 const HEIGHT: u32 = 240;
@@ -23,62 +25,75 @@ struct World {
     velocity_y: i16,
 }
 
+struct App {
+    window: Option<Arc<Window>>,
+    world: World,
+    pixels: Option<Pixels<'static>>,
+}
+
+impl ApplicationHandler for App {
+    fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
+        let attributes = Window::default_attributes()
+            .with_title("Hello Pixels")
+            .with_inner_size(size)
+            .with_min_inner_size(size);
+        let window = Arc::new(event_loop.create_window(attributes).unwrap());
+        self.window = Some(window.clone());
+        let window_size = self.window.as_mut().unwrap().inner_size();
+        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, window.clone());
+        self.pixels = Some(Pixels::new(WIDTH, HEIGHT, surface_texture).unwrap());
+    }
+
+    fn window_event(
+        &mut self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+        _window_id: winit::window::WindowId,
+        event: WindowEvent,
+    ) {
+        match event {
+            WindowEvent::CloseRequested => {
+                println!("Closing!");
+                event_loop.exit();
+            },
+            WindowEvent::KeyboardInput { device_id: _, event, is_synthetic: _ } => {
+                if event.state == winit::event::ElementState::Pressed {
+                    if let Key::Named(NamedKey::Escape) = event.logical_key {
+                        println!("Escape pressed!");
+                        event_loop.exit();
+                    }
+                }
+            },
+            WindowEvent::Resized(size) => {
+                self.pixels.as_mut().unwrap().resize_surface(size.width, size.height).ok();
+            },
+            WindowEvent::RedrawRequested => {
+                self.world.update();
+                self.world.draw(self.pixels.as_mut().unwrap().frame_mut());
+                if let Err(err) = self.pixels.as_mut().unwrap().render() {
+                    log_error("pixels.render", err);
+                    event_loop.exit();
+                }
+            },
+            _ => {},
+        }
+        self.window.as_ref().unwrap().request_redraw();
+    }
+}
+
 fn main() -> Result<(), Error> {
     env_logger::init();
     let event_loop = EventLoop::new().expect("Couldn't create event loop!");
-    let mut input = WinitInputHelper::new();
-    let window = {
-        let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
-        WindowBuilder::new()
-            .with_title("Hello Pixels")
-            .with_inner_size(size)
-            .with_min_inner_size(size)
-            .build(&event_loop)
-            .unwrap()
+
+    event_loop.set_control_flow(ControlFlow::Poll);
+
+    let mut app = App {
+        window: None,
+        world: World::new(),
+        pixels: None,        
     };
 
-    let mut pixels = {
-        let window_size = window.inner_size();
-        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
-        Pixels::new(WIDTH, HEIGHT, surface_texture)?
-    };
-    let mut world = World::new();
-
-    event_loop.run(|event, window_target| {
-        // Handle input events
-        if input.update(&event) {
-            // Close events
-            if input.key_pressed(KeyCode::Escape) || input.close_requested() {
-                window_target.exit();
-                return;
-            }
-
-            // Resize the window
-            if let Some(size) = input.window_resized() {
-                if let Err(err) = pixels.resize_surface(size.width, size.height) {
-                    log_error("pixels.resize_surface", err);
-                    window_target.exit();
-                    return;
-                }
-            }
-
-            // Update internal state and request a redraw
-            world.update();
-            window.request_redraw();
-        }
-
-        if let Event::WindowEvent { event: WindowEvent::RedrawRequested, .. } = event {
-            // Draw the current frame
-            // Draw the world
-            world.draw(pixels.frame_mut());
-
-            if let Err(err) = pixels.render() {
-                log_error("pixels.render", err);
-                window_target.exit();
-            }           
-        }
-    }).unwrap();
-
+    let _ = event_loop.run_app(&mut app);
     Ok(())
 }
 

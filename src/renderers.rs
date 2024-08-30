@@ -144,6 +144,7 @@ impl ScalingRenderer {
                 module: &module,
                 entry_point: "vs_main",
                 buffers: &[vertex_buffer_layout],
+                compilation_options: Default::default(),
             },
             primitive: wgpu::PrimitiveState::default(),
             depth_stencil: None,
@@ -151,6 +152,7 @@ impl ScalingRenderer {
             fragment: Some(wgpu::FragmentState {
                 module: &module,
                 entry_point: "fs_main",
+                compilation_options: Default::default(),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: render_texture_format,
                     blend: Some(blend_state),
@@ -158,6 +160,7 @@ impl ScalingRenderer {
                 })],
             }),
             multiview: None,
+            cache: None,
         });
 
         // Create clipping rectangle

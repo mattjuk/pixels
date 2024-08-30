@@ -1,8 +1,7 @@
 use egui::{ClippedPrimitive, Context, TexturesDelta};
 use egui_wgpu::{Renderer, ScreenDescriptor};
 use pixels::{wgpu, PixelsContext};
-use winit::event_loop::EventLoopWindowTarget;
-use winit::window::Window;
+use winit::{event_loop::ActiveEventLoop, window::Window};
 
 /// Manages all state required for rendering egui over `Pixels`.
 pub(crate) struct Framework {
@@ -26,8 +25,8 @@ struct Gui {
 
 impl Framework {
     /// Create egui.
-    pub(crate) fn new<T>(
-        event_loop: &EventLoopWindowTarget<T>,
+    pub(crate) fn new(
+        event_loop: &ActiveEventLoop,
         width: u32,
         height: u32,
         scale_factor: f32,
@@ -36,12 +35,12 @@ impl Framework {
         let max_texture_size = pixels.device().limits().max_texture_dimension_2d as usize;
 
         let egui_ctx = Context::default();
-        let egui_state = egui_winit::State::new(egui_ctx.clone(), egui::ViewportId::ROOT, event_loop, Some(scale_factor), Some(max_texture_size));
+        let egui_state = egui_winit::State::new(egui_ctx.clone(), egui::ViewportId::ROOT, event_loop, Some(scale_factor), None, Some(max_texture_size));
         let screen_descriptor = ScreenDescriptor {
             size_in_pixels: [width, height],
             pixels_per_point: scale_factor,
         };
-        let renderer = Renderer::new(pixels.device(), pixels.render_texture_format(), None, 1);
+        let renderer = Renderer::new(pixels.device(), pixels.render_texture_format(), None, 1, false);
         let textures = TexturesDelta::default();
         let gui = Gui::new();
 
