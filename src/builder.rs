@@ -342,7 +342,7 @@ impl<'req, 'dev, 'win, W: wgpu::WindowHandle + 'win>
             surface_texture_format,
             blend_state,
             pixels,
-            dirty: Cell:new(false),
+            dirty: Cell::new(false),
             scaling_matrix_inverse,
             alpha_mode,
         };
