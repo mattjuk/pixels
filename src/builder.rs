@@ -1,5 +1,6 @@
 use crate::renderers::{ScalingMatrix, ScalingRenderer};
 use crate::{Error, Pixels, PixelsContext, SurfaceSize, SurfaceTexture, TextureError};
+use std::cell::Cell;
 
 /// A builder to help create customized pixel buffers.
 pub struct PixelsBuilder<'req, 'dev, 'win, W: wgpu::WindowHandle + 'win> {
@@ -341,6 +342,7 @@ impl<'req, 'dev, 'win, W: wgpu::WindowHandle + 'win>
             surface_texture_format,
             blend_state,
             pixels,
+            dirty: Cell:new(false),
             scaling_matrix_inverse,
             alpha_mode,
         };

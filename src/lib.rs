@@ -34,6 +34,7 @@
 pub use crate::builder::{check_texture_size, PixelsBuilder};
 pub use crate::renderers::ScalingRenderer;
 pub use raw_window_handle;
+use std::cell::Cell;
 use thiserror::Error;
 pub use wgpu;
 
@@ -102,6 +103,7 @@ pub struct Pixels<'win> {
 
     // Pixel buffer
     pixels: Vec<u8>,
+    dirty: Cell<bool>,
 
     // The inverse of the scaling matrix used by the renderer
     // Used to convert physical coordinates back to pixel coordinates (for the mouse)
@@ -348,7 +350,7 @@ impl<'win> Pixels<'win> {
         // Resize the pixel buffer
         self.pixels
             .resize_with(pixels_buffer_size, Default::default);
-
+        self.dirty.set(true);
         Ok(())
     }
 
@@ -529,23 +531,27 @@ impl<'win> Pixels<'win> {
                 });
 
         // Update the pixel buffer texture view
-        let bytes_per_row =
-            (self.context.texture_extent.width as f32 * self.context.texture_format_size) as u32;
-        self.context.queue.write_texture(
-            wgpu::ImageCopyTexture {
-                texture: &self.context.texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
-                aspect: wgpu::TextureAspect::All,
-            },
-            &self.pixels,
-            wgpu::ImageDataLayout {
-                offset: 0,
-                bytes_per_row: Some(bytes_per_row),
-                rows_per_image: Some(self.context.texture_extent.height),
-            },
-            self.context.texture_extent,
-        );
+        if self.dirty.get() {
+            self.dirty.set(false);
+
+            let bytes_per_row =
+                (self.context.texture_extent.width as f32 * self.context.texture_format_size) as u32;
+            self.context.queue.write_texture(
+                wgpu::ImageCopyTexture {
+                    texture: &self.context.texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &self.pixels,
+                wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(bytes_per_row),
+                    rows_per_image: Some(self.context.texture_extent.height),
+                },
+                self.context.texture_extent,
+            );
+        }
 
         let view = frame
             .texture
@@ -581,6 +587,8 @@ impl<'win> Pixels<'win> {
     /// Get a mutable byte slice for the pixel buffer. The buffer is _not_ cleared for you; it will
     /// retain the previous frame's contents until you clear it yourself.
     pub fn frame_mut(&mut self) -> &mut [u8] {
+        self.dirty.set(true);
+        
         &mut self.pixels
     }
 
