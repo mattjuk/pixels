@@ -108,7 +108,7 @@ impl Framework {
 
         // Render egui with WGPU
         {
-            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("egui"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: render_target,
@@ -124,7 +124,7 @@ impl Framework {
             });
 
             self.renderer
-                .render(&mut rpass, &self.paint_jobs, &self.screen_descriptor);
+                .render(&mut rpass.forget_lifetime(), &self.paint_jobs, &self.screen_descriptor);
         }
 
         // Cleanup
@@ -148,7 +148,7 @@ impl Gui {
                 ui.menu_button("File", |ui| {
                     if ui.button("About...").clicked() {
                         self.window_open = true;
-                        ui.close_menu();
+                        ui.close_kind(egui::UiKind::Menu);
                     }
                 })
             });
