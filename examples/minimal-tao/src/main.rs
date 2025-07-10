@@ -1,14 +1,15 @@
 #![deny(clippy::all)]
-#![forbid(unsafe_code)]
+#![cfg_attr(not(target_os = "windows"), forbid(unsafe_code))]
 
 use error_iter::ErrorIter as _;
 use log::error;
+use muda::{Menu, MenuEvent, Submenu};
 use pixels::{Error, Pixels, SurfaceTexture};
+use std::sync::Arc;
 use tao::dpi::LogicalSize;
 use tao::event::{Event, KeyEvent, WindowEvent};
 use tao::event_loop::{ControlFlow, EventLoop};
 use tao::keyboard::KeyCode;
-use tao::menu::{MenuBar, MenuItem};
 use tao::window::WindowBuilder;
 
 const WIDTH: u32 = 320;
@@ -27,28 +28,63 @@ fn main() -> Result<(), Error> {
     env_logger::init();
     let event_loop = EventLoop::new();
     let window = {
-        let mut file_menu = MenuBar::new();
-        file_menu.add_native_item(MenuItem::Quit);
-
-        let mut menu = MenuBar::new();
-        menu.add_submenu("File", true, file_menu);
-
         let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
-        WindowBuilder::new()
+        let window = WindowBuilder::new()
             .with_title("Hello Pixels/Tao")
-            .with_menu(menu)
             .with_inner_size(size)
             .with_min_inner_size(size)
             .build(&event_loop)
-            .unwrap()
+            .unwrap();
+        Arc::new(window)
     };
 
     let mut pixels = {
         let window_size = window.inner_size();
-        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
+        let surface_texture =
+            SurfaceTexture::new(window_size.width, window_size.height, Arc::clone(&window));
         Pixels::new(WIDTH, HEIGHT, surface_texture)?
     };
     let mut world = World::new();
+
+    let menu = Menu::new();
+    #[cfg(target_os = "windows")]
+    {
+        use tao::platform::windows::WindowExtWindows as _;
+        let file_menu = Submenu::new("&File", true);
+        menu.append(&file_menu).unwrap();
+        file_menu
+            .append(&muda::PredefinedMenuItem::quit(None))
+            .unwrap();
+
+        // SAFETY: `muda` offers no safe methods for adding a menu to a window on the Windows
+        // platform. The `hWnd` is directly provided by `tao`, which we axiomatically assume is a
+        // valid handle.
+        //
+        // See: https://github.com/tauri-apps/muda/issues/273
+        unsafe {
+            menu.init_for_hwnd(window.hwnd() as _).unwrap();
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        use tao::platform::unix::WindowExtUnix as _;
+        let file_menu = Submenu::new("File", true);
+        menu.append(&file_menu).unwrap();
+        file_menu
+            .append(&muda::MenuItem::with_id("quit", "Quit", true, None))
+            .unwrap();
+        menu.init_for_gtk_window(window.gtk_window(), window.default_vbox())
+            .unwrap();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let app_menu = Submenu::new("App", true);
+        menu.append(&app_menu).unwrap();
+        app_menu
+            .append(&muda::PredefinedMenuItem::quit(None))
+            .unwrap();
+        menu.init_for_nsapp();
+    }
 
     event_loop.run(move |event, _, control_flow| {
         match event {
@@ -92,7 +128,14 @@ fn main() -> Result<(), Error> {
                 }
             }
 
-            _ => {}
+            _ => {
+                // Handle menu events
+                if let Ok(event) = MenuEvent::receiver().try_recv() {
+                    if event.id.0 == "quit" {
+                        *control_flow = ControlFlow::Exit;
+                    }
+                }
+            }
         }
     });
 }

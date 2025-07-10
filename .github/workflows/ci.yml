@@ -13,24 +13,27 @@ jobs:
         rust:
           - stable
           - beta
-          - 1.70.0
+          - 1.81.0
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
       - name: Update apt repos
         run: sudo apt -y update
       - name: Install dependencies
-        run: sudo apt -y install libgtk-3-dev libudev-dev
+        run: sudo apt -y install libgtk-3-dev libudev-dev libxdo-dev
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
+          target: wasm32-unknown-unknown
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: common
       - name: Cargo check
         run: cargo check --workspace
+      - name: Cargo check WASM
+        run: cargo check --target wasm32-unknown-unknown --package minimal-web
 
   lints:
     name: Lints
@@ -41,12 +44,13 @@ jobs:
       - name: Update apt repos
         run: sudo apt -y update
       - name: Install dependencies
-        run: sudo apt -y install libgtk-3-dev libudev-dev
+        run: sudo apt -y install libgtk-3-dev libudev-dev libxdo-dev
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
           components: clippy, rustfmt
+          target: wasm32-unknown-unknown
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -61,6 +65,8 @@ jobs:
         run: cargo doc --workspace --no-deps
       - name: Cargo clippy
         run: cargo clippy --workspace --tests -- -D warnings
+      - name: Cargo clippy WASM
+        run: cargo clippy --target wasm32-unknown-unknown --package minimal-web --tests -- -D warnings
       - name: Cargo machete
         run: cargo machete
 
@@ -73,14 +79,14 @@ jobs:
         rust:
           - stable
           - beta
-          - 1.70.0
+          - 1.81.0
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
       - name: Update apt repos
         run: sudo apt -y update
       - name: Install dependencies
-        run: sudo apt -y install libgtk-3-dev libudev-dev
+        run: sudo apt -y install libgtk-3-dev libudev-dev libxdo-dev
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@master
         with:
@@ -103,10 +109,6 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-      - name: Update apt repos
-        run: sudo apt -y update
-      - name: Install dependencies
-        run: sudo apt -y install libgtk-3-dev libudev-dev
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@master
         with:
@@ -117,7 +119,7 @@ jobs:
         with:
           shared-key: common
       - name: WASM build
-        run: cargo run-wasm --build-only ${{ matrix.example }}
+        run: cargo run-wasm --build-only --package ${{ matrix.example }}
 
   # See https://github.com/parasyte/pixels-ci-rust-version
   rust-version:
@@ -127,7 +129,7 @@ jobs:
     strategy:
       matrix:
         rust:
-          - 1.64.0
+          - 1.74.0
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3

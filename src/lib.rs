@@ -30,11 +30,11 @@
 //! `WGPU_ADAPTER_NAME` takes precedence.
 
 #![deny(clippy::all)]
+#![forbid(unsafe_code)]
 
 pub use crate::builder::{check_texture_size, PixelsBuilder};
 pub use crate::renderers::ScalingRenderer;
 pub use raw_window_handle;
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use thiserror::Error;
 pub use wgpu;
 
@@ -43,8 +43,8 @@ mod renderers;
 
 /// A logical texture for a window surface.
 #[derive(Debug)]
-pub struct SurfaceTexture<'win, W: HasRawWindowHandle + HasRawDisplayHandle> {
-    window: &'win W,
+pub struct SurfaceTexture<W: wgpu::WindowHandle> {
+    window: W,
     size: SurfaceSize,
 }
 
@@ -60,14 +60,14 @@ struct SurfaceSize {
 /// A reference to this struct is given to the `render_function` closure when using
 /// [`Pixels::render_with`].
 #[derive(Debug)]
-pub struct PixelsContext {
+pub struct PixelsContext<'win> {
     /// The `Device` allows creating GPU resources.
     pub device: wgpu::Device,
 
     /// The `Queue` provides access to the GPU command queue.
     pub queue: wgpu::Queue,
 
-    surface: wgpu::Surface,
+    surface: wgpu::Surface<'win>,
 
     /// This is the texture that your raw data is copied to by [`Pixels::render`] or
     /// [`Pixels::render_with`].
@@ -85,14 +85,18 @@ pub struct PixelsContext {
 
     /// A default renderer to scale the input texture to the screen size.
     pub scaling_renderer: ScalingRenderer,
+
+    /// Defines the capabilities of the surface and adapter including available present_modes, and
+    /// alpha_modes.
+    pub surface_capabilities: wgpu::SurfaceCapabilities,
 }
 
 /// Represents a 2D pixel buffer with an explicit image resolution.
 ///
 /// See [`PixelsBuilder`] for building a customized pixel buffer.
 #[derive(Debug)]
-pub struct Pixels {
-    context: PixelsContext,
+pub struct Pixels<'win> {
+    context: PixelsContext<'win>,
     surface_size: SurfaceSize,
     present_mode: wgpu::PresentMode,
     render_texture_format: wgpu::TextureFormat,
@@ -147,7 +151,7 @@ pub enum TextureError {
     TextureHeight(u32),
 }
 
-impl<'win, W: HasRawWindowHandle + HasRawDisplayHandle> SurfaceTexture<'win, W> {
+impl<W: wgpu::WindowHandle> SurfaceTexture<W> {
     /// Create a logical texture for a window surface.
     ///
     /// It is recommended (but not required) that the `width` and `height` are equivalent to the
@@ -160,7 +164,7 @@ impl<'win, W: HasRawWindowHandle + HasRawDisplayHandle> SurfaceTexture<'win, W> 
     /// use winit::event_loop::EventLoop;
     /// use winit::window::Window;
     ///
-    /// let event_loop = EventLoop::new();
+    /// let event_loop = EventLoop::new().unwrap();
     /// let window = Window::new(&event_loop).unwrap();
     /// let size = window.inner_size();
     ///
@@ -171,7 +175,7 @@ impl<'win, W: HasRawWindowHandle + HasRawDisplayHandle> SurfaceTexture<'win, W> 
     /// # Panics
     ///
     /// Panics when `width` or `height` are 0.
-    pub fn new(width: u32, height: u32, window: &'win W) -> Self {
+    pub fn new(width: u32, height: u32, window: W) -> Self {
         assert!(width > 0);
         assert!(height > 0);
 
@@ -181,7 +185,7 @@ impl<'win, W: HasRawWindowHandle + HasRawDisplayHandle> SurfaceTexture<'win, W> 
     }
 }
 
-impl Pixels {
+impl<'win> Pixels<'win> {
     /// Create a pixel buffer instance with default options.
     ///
     /// Any ratio differences between the pixel buffer texture size and surface texture size will
@@ -197,11 +201,27 @@ impl Pixels {
     ///
     /// # Examples
     ///
+    /// Pass a borrowed window object to receive a `Pixels` object tied to the corresponding
+    /// lifetime:
+    ///
     /// ```no_run
-    /// # use pixels::Pixels;
-    /// # let window = pixels_mocks::Rwh;
-    /// # let surface_texture = pixels::SurfaceTexture::new(320, 240, &window);
-    /// let mut pixels = Pixels::new(320, 240, surface_texture)?;
+    /// # use pixels::{Pixels, SurfaceTexture};
+    /// # let window = pixels_mocks::Window;
+    /// let surface_texture = SurfaceTexture::new(320, 240, &window);
+    /// let mut pixels: Pixels<'_> = Pixels::new(320, 240, surface_texture)?;
+    /// # Ok::<(), pixels::Error>(())
+    /// ```
+    ///
+    /// Pass an owned window object to receive a static `Pixels` object, not tied to any lifetime.
+    /// This includes objects wrapped in smart pointers like `Arc`, `Rc`, or `Box`:
+    ///
+    /// ```no_run
+    /// # use std::sync::Arc;
+    /// # use pixels::{Pixels, SurfaceTexture};
+    /// # let window = pixels_mocks::Window;
+    /// let arc = Arc::new(window);
+    /// let surface_texture = SurfaceTexture::new(320, 240, arc.clone());
+    /// let mut pixels: Pixels<'static> = Pixels::new(320, 240, surface_texture)?;
     /// # Ok::<(), pixels::Error>(())
     /// ```
     ///
@@ -213,10 +233,10 @@ impl Pixels {
     ///
     /// Panics when `width` or `height` are 0.
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn new<W: HasRawWindowHandle + HasRawDisplayHandle>(
+    pub fn new<W: wgpu::WindowHandle + 'win>(
         width: u32,
         height: u32,
-        surface_texture: SurfaceTexture<'_, W>,
+        surface_texture: SurfaceTexture<W>,
     ) -> Result<Self, Error> {
         PixelsBuilder::new(width, height, surface_texture).build()
     }
@@ -230,7 +250,7 @@ impl Pixels {
     /// ```no_run
     /// # async fn test() -> Result<(), pixels::Error> {
     /// # use pixels::Pixels;
-    /// # let window = pixels_mocks::Rwh;
+    /// # let window = pixels_mocks::Window;
     /// # let surface_texture = pixels::SurfaceTexture::new(320, 240, &window);
     /// let mut pixels = Pixels::new_async(320, 240, surface_texture).await?;
     /// # Ok::<(), pixels::Error>(())
@@ -244,10 +264,10 @@ impl Pixels {
     /// # Panics
     ///
     /// Panics when `width` or `height` are 0.
-    pub async fn new_async<W: HasRawWindowHandle + HasRawDisplayHandle>(
+    pub async fn new_async<W: wgpu::WindowHandle + 'win>(
         width: u32,
         height: u32,
-        surface_texture: SurfaceTexture<'_, W>,
+        surface_texture: SurfaceTexture<W>,
     ) -> Result<Self, Error> {
         PixelsBuilder::new(width, height, surface_texture)
             .build_async()
@@ -263,7 +283,7 @@ impl Pixels {
     /// use pixels::wgpu::Color;
     ///
     /// # use pixels::Pixels;
-    /// # let window = pixels_mocks::Rwh;
+    /// # let window = pixels_mocks::Window;
     /// # let surface_texture = pixels::SurfaceTexture::new(320, 240, &window);
     /// let mut pixels = Pixels::new(320, 240, surface_texture)?;
     ///
@@ -282,7 +302,7 @@ impl Pixels {
     ///
     /// ```no_run
     /// # use pixels::Pixels;
-    /// # let window = pixels_mocks::Rwh;
+    /// # let window = pixels_mocks::Window;
     /// # let surface_texture = pixels::SurfaceTexture::new(320, 240, &window);
     /// let mut pixels = Pixels::new(320, 240, surface_texture)?;
     /// let adapter = pixels.adapter();
@@ -425,7 +445,7 @@ impl Pixels {
     ///
     /// ```no_run
     /// # use pixels::Pixels;
-    /// # let window = pixels_mocks::Rwh;
+    /// # let window = pixels_mocks::Window;
     /// # let surface_texture = pixels::SurfaceTexture::new(320, 240, &window);
     /// let mut pixels = Pixels::new(320, 240, surface_texture)?;
     ///
@@ -470,7 +490,7 @@ impl Pixels {
     ///
     /// ```no_run
     /// # use pixels::Pixels;
-    /// # let window = pixels_mocks::Rwh;
+    /// # let window = pixels_mocks::Window;
     /// # let surface_texture = pixels::SurfaceTexture::new(320, 240, &window);
     /// let mut pixels = Pixels::new(320, 240, surface_texture)?;
     ///
@@ -556,6 +576,7 @@ impl Pixels {
                 width: self.surface_size.width,
                 height: self.surface_size.height,
                 present_mode: self.present_mode,
+                desired_maximum_frame_latency: 2,
                 alpha_mode: self.alpha_mode,
                 view_formats: vec![],
             },
@@ -590,7 +611,7 @@ impl Pixels {
     /// use winit::dpi::PhysicalPosition;
     ///
     /// # use pixels::Pixels;
-    /// # let window = pixels_mocks::Rwh;
+    /// # let window = pixels_mocks::Window;
     /// # let surface_texture = pixels::SurfaceTexture::new(320, 240, &window);
     /// let mut pixels = Pixels::new(320, 240, surface_texture)?;
     ///
@@ -645,7 +666,7 @@ impl Pixels {
     ///
     /// ```no_run
     /// # use pixels::Pixels;
-    /// # let window = pixels_mocks::Rwh;
+    /// # let window = pixels_mocks::Window;
     /// # let surface_texture = pixels::SurfaceTexture::new(320, 240, &window);
     /// let mut pixels = Pixels::new(320, 240, surface_texture)?;
     ///
