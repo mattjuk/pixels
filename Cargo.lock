@@ -500,7 +500,7 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 [[package]]
 name = "ecolor"
 version = "0.31.1"
-source = "git+https://github.com/emilk/egui?branch=main#8d2f39fc08956068202b4836a3b87c29509276f9"
+source = "git+https://github.com/emilk/egui?branch=main#14c2e5d3d5b1bce77b72e0c3367af0a2be9222d2"
 dependencies = [
  "bytemuck",
  "emath",
@@ -509,7 +509,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.31.1"
-source = "git+https://github.com/emilk/egui?branch=main#8d2f39fc08956068202b4836a3b87c29509276f9"
+source = "git+https://github.com/emilk/egui?branch=main#14c2e5d3d5b1bce77b72e0c3367af0a2be9222d2"
 dependencies = [
  "ahash",
  "bitflags 2.9.1",
@@ -525,7 +525,7 @@ dependencies = [
 [[package]]
 name = "egui-wgpu"
 version = "0.31.1"
-source = "git+https://github.com/emilk/egui?branch=main#8d2f39fc08956068202b4836a3b87c29509276f9"
+source = "git+https://github.com/emilk/egui?branch=main#14c2e5d3d5b1bce77b72e0c3367af0a2be9222d2"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -543,7 +543,7 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.31.1"
-source = "git+https://github.com/emilk/egui?branch=main#8d2f39fc08956068202b4836a3b87c29509276f9"
+source = "git+https://github.com/emilk/egui?branch=main#14c2e5d3d5b1bce77b72e0c3367af0a2be9222d2"
 dependencies = [
  "ahash",
  "egui",
@@ -564,7 +564,7 @@ checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 [[package]]
 name = "emath"
 version = "0.31.1"
-source = "git+https://github.com/emilk/egui?branch=main#8d2f39fc08956068202b4836a3b87c29509276f9"
+source = "git+https://github.com/emilk/egui?branch=main#14c2e5d3d5b1bce77b72e0c3367af0a2be9222d2"
 dependencies = [
  "bytemuck",
 ]
@@ -595,7 +595,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.31.1"
-source = "git+https://github.com/emilk/egui?branch=main#8d2f39fc08956068202b4836a3b87c29509276f9"
+source = "git+https://github.com/emilk/egui?branch=main#14c2e5d3d5b1bce77b72e0c3367af0a2be9222d2"
 dependencies = [
  "ab_glyph",
  "ahash",
@@ -612,7 +612,7 @@ dependencies = [
 [[package]]
 name = "epaint_default_fonts"
 version = "0.31.1"
-source = "git+https://github.com/emilk/egui?branch=main#8d2f39fc08956068202b4836a3b87c29509276f9"
+source = "git+https://github.com/emilk/egui?branch=main#14c2e5d3d5b1bce77b72e0c3367af0a2be9222d2"
 
 [[package]]
 name = "equivalent"
