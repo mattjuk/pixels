@@ -59,7 +59,7 @@ impl<'req, 'dev, 'win, W: wgpu::WindowHandle + 'win>
             _pixel_aspect_ratio: 1.0,
             present_mode: wgpu::PresentMode::AutoVsync,
             surface_texture,
-            texture_format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            texture_format: wgpu::TextureFormat::Rgba8Unorm,
             render_texture_format: None,
             surface_texture_format: None,
             clear_color: wgpu::Color::BLACK,
@@ -276,7 +276,7 @@ impl<'req, 'dev, 'win, W: wgpu::WindowHandle + 'win>
                 .formats
                 .iter()
                 .find(|format| format.is_srgb())
-                .unwrap_or(&wgpu::TextureFormat::Bgra8UnormSrgb)
+                .unwrap_or(&wgpu::TextureFormat::Rgba8Unorm)
         });
         let render_texture_format = self.render_texture_format.unwrap_or(surface_texture_format);
 
