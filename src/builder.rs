@@ -272,11 +272,19 @@ impl<'req, 'dev, 'win, W: wgpu::WindowHandle + 'win>
         let surface_capabilities = surface.get_capabilities(&adapter);
         let present_mode = self.present_mode;
         let surface_texture_format = self.surface_texture_format.unwrap_or_else(|| {
-            *surface_capabilities
+            surface_capabilities
                 .formats
                 .iter()
-                .find(|format| format.is_srgb())
-                .unwrap_or(&wgpu::TextureFormat::Rgba8Unorm)
+                .find(|&&format| format == wgpu::TextureFormat::Rgba8Unorm)
+                .cloned()
+                .or_else(|| {
+                    surface_capabilities
+                        .formats
+                        .iter()
+                        .find(|format| !format.is_srgb())
+                        .cloned()
+                })
+                .unwrap_or(wgpu::TextureFormat::Rgba8Unorm)
         });
         let render_texture_format = self.render_texture_format.unwrap_or(surface_texture_format);
 
