@@ -144,7 +144,7 @@ impl Gui {
     /// Create the UI using egui.
     fn ui(&mut self, ctx: &Context) {
         egui::TopBottomPanel::top("menubar_container").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
+            egui::MenuBar::new().ui(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("About...").clicked() {
                         self.window_open = true;
