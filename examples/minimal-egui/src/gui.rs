@@ -1,5 +1,5 @@
 use egui::{ClippedPrimitive, Context, TexturesDelta};
-use egui_wgpu::{Renderer, ScreenDescriptor};
+use egui_wgpu::{Renderer, RendererOptions, ScreenDescriptor};
 use pixels::{wgpu, PixelsContext};
 use winit::{event_loop::ActiveEventLoop, window::Window};
 
@@ -40,7 +40,7 @@ impl Framework {
             size_in_pixels: [width, height],
             pixels_per_point: scale_factor,
         };
-        let renderer = Renderer::new(pixels.device(), pixels.render_texture_format(), None, 1, false);
+        let renderer = Renderer::new(pixels.device(), pixels.render_texture_format(), RendererOptions::PREDICTABLE);
         let textures = TexturesDelta::default();
         let gui = Gui::new();
 
@@ -111,6 +111,7 @@ impl Framework {
             let rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("egui"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    depth_slice: None,
                     view: render_target,
                     resolve_target: None,
                     ops: wgpu::Operations {

@@ -13,8 +13,8 @@ default = ["optimize"]
 egui = { git = "https://github.com/emilk/egui", branch = "main" }
 egui-wgpu = { git = "https://github.com/emilk/egui", branch = "main" }
 egui-winit = { git = "https://github.com/emilk/egui", branch = "main", default-features = false, features = ["links"] }
-env_logger = "0.11.3"
-error-iter = "0.4"
+env_logger = "0.11.8"
+error-iter = "^0.4"
 log = "0.4"
 pixels = { path = "../.." }
-winit = { version = "0.30.11", features = ["rwh_06"] }
+winit = { version = "0.30.12", features = ["rwh_06"] }

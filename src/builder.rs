@@ -623,5 +623,8 @@ const fn texture_format_size(texture_format: wgpu::TextureFormat) -> f32 {
 
         // 8-bit two-plane 4:2:0 YUV
         NV12 => 1.5,
+
+        // 16-bit two-plane 4:2:0 YUV
+        P010 => 3.0,
     }
 }

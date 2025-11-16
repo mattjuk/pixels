@@ -183,6 +183,7 @@ impl ScalingRenderer {
         let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("pixels_scaling_renderer_render_pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                depth_slice: None,
                 view: render_target,
                 resolve_target: None,
                 ops: wgpu::Operations {
