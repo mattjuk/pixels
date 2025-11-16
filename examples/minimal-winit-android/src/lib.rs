@@ -6,9 +6,12 @@ use winit::platform::android::activity::AndroidApp;
 
 use pixels::{Pixels, SurfaceTexture};
 use std::sync::Arc;
-use winit::event::{Event, WindowEvent};
+use winit::application::ApplicationHandler;
+use winit::dpi::LogicalSize;
+use winit::event::WindowEvent;
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
+
 
 const WIDTH: u32 = 320;
 const HEIGHT: u32 = 240;
@@ -22,56 +25,54 @@ struct World {
     velocity_y: i16,
 }
 
-struct Display {
-    window: Arc<Window>,
-    pixels: Pixels<'static>,
+struct App {
+    window: Option<Arc<Window>>,
+    world: World,
+    pixels: Option<Pixels<'static>>,
 }
 
-pub fn _main(event_loop: EventLoop<()>) {
-    let mut display = None;
-    let mut world = World::new();
+impl ApplicationHandler for App {
+    fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {        
+        let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
+        let attributes = Window::default_attributes()
+            .with_title("Hello Pixels")
+            .with_inner_size(size)
+            .with_min_inner_size(size);
 
-    let res = event_loop.run(|event, elwt| {
-        elwt.set_control_flow(ControlFlow::Wait);
+        let window = Arc::new(event_loop.create_window(attributes).unwrap());
+        self.window = Some(window.clone());
+        let window_size = self.window.as_ref().unwrap().inner_size();
+        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, window.clone());
+        self.pixels = Some(Pixels::new(WIDTH, HEIGHT, surface_texture).unwrap());
+    }
+
+    fn window_event(
+            &mut self,
+            event_loop: &winit::event_loop::ActiveEventLoop,
+            _window_id: winit::window::WindowId,
+            event: WindowEvent,
+    ) {
         match event {
-            Event::Resumed => {
-                let window = Arc::new(Window::new(elwt).unwrap());
-                let pixels = {
-                    let window_size = window.inner_size();
-                    let surface_texture = SurfaceTexture::new(
-                        window_size.width,
-                        window_size.height,
-                        Arc::clone(&window),
-                    );
-                    Pixels::new(WIDTH, HEIGHT, surface_texture).unwrap()
-                };
-                window.request_redraw();
-                display = Some(Display { window, pixels });
-            }
-            Event::Suspended => {
-                display = None;
-            }
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                ..
-            } => {
-                elwt.exit();
-            }
-            Event::WindowEvent {
-                event: WindowEvent::RedrawRequested,
-                ..
-            } => {
-                world.update();
-                if let Some(display) = &mut display {
-                    world.draw(display.pixels.frame_mut());
-                    display.pixels.render().unwrap();
-                    display.window.request_redraw();
+            WindowEvent::CloseRequested => {
+                // Handle window close widget
+                event_loop.exit();
+            },
+            WindowEvent::Resized(size) => {
+                // Resize the window
+                self.pixels.as_mut().unwrap().resize_surface(size.width, size.height).ok();
+            },
+            WindowEvent::RedrawRequested => {
+                // Update internal state and request a redraw
+                self.world.update();
+                self.world.draw(self.pixels.as_mut().unwrap().frame_mut());
+                if let Err(_err) = self.pixels.as_mut().unwrap().render() {
+                    event_loop.exit();
                 }
-            }
-            _ => {}
+            },
+            _ => {},
         }
-    });
-    res.unwrap();
+        self.window.as_ref().unwrap().request_redraw();
+    }
 }
 
 impl World {

@@ -10,7 +10,7 @@ optimize = ["log/release_max_level_warn"]
 default = ["optimize"]
 
 [dependencies]
-fltk = { version = "1", features = ["rwh06", "no-pango"] }
+fltk = { version = "1", features = ["fltk-bundled", "rwh06", "no-pango"] }
 
 env_logger.workspace = true
 error-iter.workspace = true

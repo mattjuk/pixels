@@ -5,12 +5,13 @@ use crate::gui::Framework;
 use error_iter::ErrorIter as _;
 use log::error;
 use pixels::{Error, Pixels, SurfaceTexture};
+use std::sync::Arc;
+use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
-use winit::event::{Event, WindowEvent};
-use winit::event_loop::EventLoop;
-use winit::keyboard::KeyCode;
-use winit::window::WindowBuilder;
-use winit_input_helper::WinitInputHelper;
+use winit::event::WindowEvent;
+use winit::event_loop::{ControlFlow, EventLoop};
+use winit::keyboard::{Key, NamedKey};
+use winit::window::Window;
 
 mod gui;
 
@@ -26,85 +27,77 @@ struct World {
     velocity_y: i16,
 }
 
-fn main() -> Result<(), Error> {
-    env_logger::init();
-    let event_loop = EventLoop::new().unwrap();
-    let mut input = WinitInputHelper::new();
-    let window = {
+struct App {
+    window: Option<Arc<Window>>,
+    world: World,
+    pixels: Option<Pixels<'static>>,
+    framework: Option<Framework>,
+}
+
+impl ApplicationHandler for App {
+    fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
         let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
-        WindowBuilder::new()
+        let attributes = Window::default_attributes()
             .with_title("Hello Pixels + egui")
             .with_inner_size(size)
-            .with_min_inner_size(size)
-            .build(&event_loop)
-            .unwrap()
-    };
+            .with_min_inner_size(size);
 
-    let (mut pixels, mut framework) = {
-        let window_size = window.inner_size();
-        let scale_factor = window.scale_factor() as f32;
-        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
-        let pixels = Pixels::new(WIDTH, HEIGHT, surface_texture)?;
-        let framework = Framework::new(
-            &event_loop,
+        let window = Arc::new(event_loop.create_window(attributes).unwrap());
+        let scale_factor = window.as_ref().scale_factor() as f32;
+        self.window = Some(window.clone());
+        let window_size = self.window.as_ref().unwrap().inner_size();
+        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, window.clone());
+        self.pixels = Some(Pixels::new(WIDTH, HEIGHT, surface_texture).unwrap());
+        self.framework = Some(Framework::new(
+            event_loop,
             window_size.width,
             window_size.height,
             scale_factor,
-            &pixels,
-        );
+            self.pixels.as_ref().unwrap(),
+        ));
+    }
 
-        (pixels, framework)
-    };
-    let mut world = World::new();
-
-    let res = event_loop.run(|event, elwt| {
-        // Handle input events
-        if input.update(&event) {
-            // Close events
-            if input.key_pressed(KeyCode::Escape) || input.close_requested() {
-                elwt.exit();
-                return;
-            }
-
-            // Update the scale factor
-            if let Some(scale_factor) = input.scale_factor() {
-                framework.scale_factor(scale_factor);
-            }
-
-            // Resize the window
-            if let Some(size) = input.window_resized() {
-                if let Err(err) = pixels.resize_surface(size.width, size.height) {
-                    log_error("pixels.resize_surface", err);
-                    elwt.exit();
-                    return;
-                }
-                framework.resize(size.width, size.height);
-            }
-
-            // Update internal state and request a redraw
-            world.update();
-            window.request_redraw();
-        }
-
+    fn window_event(
+        &mut self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+        _window_id: winit::window::WindowId,
+        event: WindowEvent,
+    ) {
         match event {
-            // Draw the current frame
-            Event::WindowEvent {
-                event: WindowEvent::RedrawRequested,
-                ..
-            } => {
-                // Draw the world
-                world.draw(pixels.frame_mut());
-
-                // Prepare egui
-                framework.prepare(&window);
+            WindowEvent::CloseRequested => {
+                // Handle window close widget
+                event_loop.exit();
+            },
+            WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer: _ } => {
+                // Update the scale factor
+                self.framework.as_mut().unwrap().scale_factor(scale_factor);
+            },
+            WindowEvent::KeyboardInput { device_id: _, event, is_synthetic: _ } => {
+                // Handle keyboard input for exit
+                if let Key::Named(NamedKey::Escape) = event.logical_key {
+                    if event.state.is_pressed() {
+                        event_loop.exit();
+                    }
+                }
+            },
+            WindowEvent::Resized(size) => {
+                // Resize the window
+                self.pixels.as_mut().unwrap().resize_surface(size.width, size.height).ok();
+                self.framework.as_mut().unwrap().resize(size.width, size.height);
+            },
+            WindowEvent::RedrawRequested => {
+                // Update internal state and request a redraw
+                self.world.update();
+                self.world.draw(self.pixels.as_mut().unwrap().frame_mut());
+                self.framework.as_mut().unwrap().prepare(self.window.as_ref().unwrap());
 
                 // Render everything together
-                let render_result = pixels.render_with(|encoder, render_target, context| {
+                let render_result = self.pixels.as_mut().unwrap().render_with(|encoder, render_target, context| {
                     // Render the world texture
                     context.scaling_renderer.render(encoder, render_target);
 
                     // Render egui
-                    framework.render(encoder, render_target, context);
+                    self.framework.as_mut().unwrap().render(encoder, render_target, context);
 
                     Ok(())
                 });
@@ -112,17 +105,36 @@ fn main() -> Result<(), Error> {
                 // Basic error handling
                 if let Err(err) = render_result {
                     log_error("pixels.render", err);
-                    elwt.exit();
+                    event_loop.exit();
                 }
-            }
-            Event::WindowEvent { event, .. } => {
+            },
+            _ => {
                 // Update egui inputs
-                framework.handle_event(&window, &event);
-            }
-            _ => (),
+                self.framework.as_mut().unwrap().handle_event(self.window.as_ref().unwrap(), &event);
+            },
         }
-    });
-    res.map_err(|e| Error::UserDefined(Box::new(e)))
+
+        // Request a redraw
+        self.window.as_ref().unwrap().request_redraw();
+    }
+}
+
+fn main() -> Result<(), Error> {
+    env_logger::init();
+
+    let event_loop = EventLoop::new().expect("Couldn't create event loop!");
+
+    event_loop.set_control_flow(ControlFlow::Poll);
+
+    let mut app = App {
+        window: None,
+        world: World::new(),
+        pixels: None,
+        framework: None,
+    };
+
+    let _ = event_loop.run_app(&mut app);
+    Ok(())
 }
 
 fn log_error<E: std::error::Error + 'static>(method_name: &str, err: E) {

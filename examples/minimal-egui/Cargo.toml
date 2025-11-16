@@ -10,9 +10,9 @@ optimize = ["log/release_max_level_warn"]
 default = ["optimize"]
 
 [dependencies]
-egui = "0.26"
-egui-wgpu = "0.26.0"
-egui-winit = { version = "0.26", default-features = false, features = ["links"] }
+egui = "0.33.2"
+egui-wgpu = "0.33.2"
+egui-winit = { version = "0.33.2", default-features = false, features = ["links"] }
 
 env_logger.workspace = true
 error-iter.workspace = true

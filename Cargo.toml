@@ -4,7 +4,7 @@ description = "A tiny library providing a GPU-powered pixel frame buffer."
 version = "0.15.0"
 authors = ["Jay Oster <jay@kodewerx.org>"]
 edition = "2021"
-rust-version = "1.74.0"
+rust-version = "1.81.0"
 repository = "https://github.com/parasyte/pixels"
 readme = "README.md"
 keywords = ["pixels", "2D", "GPU", "framebuffer"]
@@ -20,41 +20,52 @@ include = [
 ]
 
 [dependencies]
-bytemuck = "1.12"
+bytemuck = "1.24"
 raw-window-handle = "0.6"
-thiserror = "1.0"
-ultraviolet = "0.9"
-wgpu = "0.19"
+thiserror = "2.0"
+ultraviolet = "0.10"
+wgpu = "27.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wgpu = { version = "0.19", features = ["webgl"] }
+wgpu = { version = "27.0", features = ["webgl"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-pollster = "0.3"
+pollster = "0.4"
 
 [dev-dependencies]
 pixels-mocks = { path = "internals/pixels-mocks" }
-winit = "0.29"
+winit = "0.30"
 
 [workspace]
 members = [
-    "examples/*",
+#   "examples/conway",
+#   "examples/custom-shader",
+#   "examples/imgui-winit", 
+#   "examples/invaders",
+    "examples/minimal-egui",
+    "examples/minimal-fltk",
+    "examples/minimal-tao",
+#   "examples/minimal-web",
+    "examples/minimal-winit",
+#   "examples/minimal-winit-android",
+#   "examples/raqote-winit",
+#   "examples/tiny-skia-winit",
     "internals/*",
     "run-wasm",
 ]
 
 # Dependencies that are shared by the workspace.
 [workspace.dependencies]
-env_logger = "0.10"
+env_logger = "0.11"
 error-iter = "0.4"
 log = "0.4"
-winit = "0.29"
-winit_input_helper = "0.15"
+winit = { version = "0.30", features = ["rwh_06"] }
+winit_input_helper = "0.17"
 
 # Note that `pixels` is pinned to a published version to allow users to copy working code from the
 # examples into their own projects. The example packages that use this workspace version will not be
 # able to build against the local working copy while developing by default.
 #
 # Temporarily change the dependency to use a path specification while testing in development.
-pixels = "0.15"
-# pixels = { path = "." }
+# pixels = "0.15"
+pixels = { path = "." }
