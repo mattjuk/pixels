@@ -57,8 +57,8 @@ impl ApplicationHandler for App {
                 event_loop.exit();
             },
             WindowEvent::KeyboardInput { device_id: _, event, is_synthetic: _ } => {
-                if event.state == winit::event::ElementState::Pressed {
-                    if let Key::Named(NamedKey::Escape) = event.logical_key {
+                if let Key::Named(NamedKey::Escape) = event.logical_key {
+                    if event.state.is_pressed() {
                         println!("Escape pressed!");
                         event_loop.exit();
                     }
